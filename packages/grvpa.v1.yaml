@@ -1,0 +1,100 @@
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+
+i2c:
+  id: i2c_bus1
+  sda: ${tof_sda_pin}
+  scl: ${tof_scl_pin}
+  scan: true
+
+output:
+  - platform: ledc
+    id: pwm_red_output
+    pin: ${red_led_pin}
+    frequency: 500 Hz
+    inverted: false
+    max_power: 0.55 # Current limits do not increase
+  - platform: ledc
+    id: pwm_green_output
+    pin: ${green_led_pin}
+    frequency: 500 Hz
+    inverted: false
+    max_power: 0.55 # Current limits do not increase
+
+number:
+  - platform: template
+    name: "Stop Distance Threshold"
+    id: stop_distance_threshold
+    min_value: 0.1
+    max_value: 2.0
+    step: 0.05
+    restore_value: true
+    initial_value: 0.8
+    unit_of_measurement: "m"
+    optimistic: true
+
+light:
+  - platform: monochromatic
+    name: "Stop Light"
+    output: pwm_red_output
+    restore_mode: ALWAYS_OFF
+  - platform: monochromatic
+    name: "Go Light"
+    output: pwm_green_output
+    restore_mode: ALWAYS_ON
+
+sensor:
+  - platform: vl53l0x
+    id: tof1
+    internal: true        # Keep data local
+    address: 0x29
+    timing_budget: 200ms
+    update_interval: 250ms
+    long_range: true
+
+# Note: Sunlight and bright light will cause read noise, filters  assist to clean this up.
+# Some surfaces are difficult to read, glass and dark objects generate more random values slowing the transition actions.
+
+    filters:
+      - quantile:
+          window_size: 4
+          send_every: 1
+          quantile: .9
+
+    on_value:
+      then:
+        - lambda: |-
+            static float last_good = -1;
+            float dist = id(tof1).state;
+            float stop_thresh = id(stop_distance_threshold).state;
+
+            // Reject invalid readings
+            if (dist <= .12|| (dist > stop_thresh + 0.15) ) {
+              id(pwm_red_output).set_level(0.0);
+              id(pwm_green_output).set_level(0.55);
+              return;
+            }
+
+            // LED logic
+            if (dist <= stop_thresh) {
+              id(pwm_red_output).set_level(0.55);
+              id(pwm_green_output).set_level(0.0);
+            } else {
+              id(pwm_red_output).set_level(0.0);
+              id(pwm_green_output).set_level(0.55);
+            }
+
+  - platform: template
+    name: Vehicle Distance
+    id: tof1_ha
+    unit_of_measurement: "M"
+    accuracy_decimals: 2
+    update_interval: 5s
+    lambda: |-
+      return id(tof1).state;   // read internal sensor
+
+status_led:
+  pin: ${status_led_pin}
