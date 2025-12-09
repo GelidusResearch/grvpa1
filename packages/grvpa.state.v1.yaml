@@ -1,0 +1,132 @@
+# Vehicle Detection State Machine for GRVPA
+# States: Absent, Arriving, Parked, Leaving
+# Transitions based on distance sensor measurements from tof1 sensor
+# Works with grvpa.v1.yaml configuration
+
+substitutions:
+  target_distance: "0.8"  # Target parking distance in meters (matches stop_distance_threshold)
+  distance_tolerance: "0.1"  # Tolerance for detection (±0.1m)
+  transition_delay: "15s"  # Delay before state transitions
+
+# Text sensor for vehicle state
+text_sensor:
+  - platform: template
+    name: "Vehicle State"
+    id: vehicle_state
+    icon: "mdi:car"
+    update_interval: never  # Updated by automation
+
+# Number input for target distance configuration
+number:
+  - platform: template
+    name: "Target Parking Distance"
+    id: target_parking_distance
+    min_value: 0.5
+    max_value: 5.0
+    step: 0.1
+    unit_of_measurement: "m"
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${target_distance}
+    icon: "mdi:ruler"
+
+  - platform: template
+    name: "Distance Tolerance"
+    id: distance_tolerance_setting
+    min_value: 0.05
+    max_value: 0.5
+    step: 0.05
+    unit_of_measurement: "m"
+    mode: box
+    optimistic: true
+    restore_value: true
+    initial_value: ${distance_tolerance}
+    icon: "mdi:approximately-equal"
+
+# Binary sensors for state conditions
+binary_sensor:
+  - platform: template
+    name: "Vehicle In Range"
+    id: vehicle_in_range
+    icon: "mdi:car-connected"
+    lambda: |-
+      // Use tof1 sensor from grvpa.v1.yaml
+      if (id(tof1).state > 0.12) {  // Ignore invalid readings below 0.12m
+        float target = id(target_parking_distance).state;
+        float tolerance = id(distance_tolerance_setting).state;
+        float distance = id(tof1).state;
+        return (distance >= (target - tolerance) && distance <= (target + tolerance));
+      }
+      return false;
+
+# Interval for state machine logic
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          static std::string last_state = "Absent";
+          static uint32_t state_change_time = 0;
+          static bool timer_active = false;
+
+          std::string current_state = id(vehicle_state).state;
+          bool in_range = id(vehicle_in_range).state;
+          uint32_t current_time = millis();
+
+          // Initialize state on first run
+          if (current_state.empty()) {
+            id(vehicle_state).publish_state("Absent");
+            current_state = "Absent";
+          }
+
+          // State machine logic
+          if (current_state == "Absent") {
+            if (in_range) {
+              // Vehicle detected within range, transition to Arriving
+              id(vehicle_state).publish_state("Arriving");
+              state_change_time = current_time;
+              timer_active = true;
+              ESP_LOGI("vehicle_state", "Vehicle detected - State: Arriving");
+            }
+          }
+          else if (current_state == "Arriving") {
+            if (!in_range) {
+              // Vehicle moved out of range, return to Absent
+              id(vehicle_state).publish_state("Absent");
+              timer_active = false;
+              ESP_LOGI("vehicle_state", "Vehicle left before parking - State: Absent");
+            }
+            else if (timer_active && (current_time - state_change_time >= 15000)) {
+              // Vehicle remained in range for 15s, transition to Parked
+              id(vehicle_state).publish_state("Parked");
+              timer_active = false;
+              ESP_LOGI("vehicle_state", "Vehicle parked - State: Parked");
+            }
+          }
+          else if (current_state == "Parked") {
+            if (!in_range) {
+              // Vehicle moved out of range, transition to Leaving
+              id(vehicle_state).publish_state("Leaving");
+              state_change_time = current_time;
+              timer_active = true;
+              ESP_LOGI("vehicle_state", "Vehicle leaving - State: Leaving");
+            }
+          }
+          else if (current_state == "Leaving") {
+            if (in_range) {
+              // Vehicle returned to range, go back to Parked
+              id(vehicle_state).publish_state("Parked");
+              timer_active = false;
+              ESP_LOGI("vehicle_state", "Vehicle returned - State: Parked");
+            }
+            else if (timer_active && (current_time - state_change_time >= 15000)) {
+              // Vehicle remained out of range for 15s, transition to Absent
+              id(vehicle_state).publish_state("Absent");
+              timer_active = false;
+              ESP_LOGI("vehicle_state", "Vehicle departed - State: Absent");
+            }
+          }
+
+# This configuration works with grvpa.v1.yaml
+# Uses the tof1 (VL53L0X) sensor for distance measurements
+# Include this file in your main configuration with packages:
