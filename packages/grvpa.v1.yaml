@@ -46,6 +46,14 @@ light:
     output: pwm_green_output
     restore_mode: ALWAYS_ON
 
+text_sensor:
+  - platform: version
+    name: ESPHome Version
+    hide_timestamp: true
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+
 sensor:
   - platform: vl53l0x
     id: tof1

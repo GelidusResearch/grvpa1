@@ -22,8 +22,8 @@ number:
     name: "Target Parking Distance"
     id: target_parking_distance
     min_value: 0.5
-    max_value: 5.0
-    step: 0.1
+    max_value: 2.0
+    step: 0.05
     unit_of_measurement: "m"
     mode: box
     optimistic: true
@@ -32,9 +32,9 @@ number:
     icon: "mdi:ruler"
 
   - platform: template
-    name: "Distance Tolerance"
+    name: "Parking Detection Tolerance"
     id: distance_tolerance_setting
-    min_value: 0.05
+    min_value: 0.1
     max_value: 0.5
     step: 0.05
     unit_of_measurement: "m"
@@ -49,11 +49,12 @@ binary_sensor:
   - platform: template
     name: "Vehicle In Range"
     id: vehicle_in_range
+    internal: true
     icon: "mdi:car-connected"
     lambda: |-
-      // Use tof1 sensor from grvpa.v1.yaml
+      // Use tof1 sensor and stop_distance_threshold from grvpa.v1.yaml
       if (id(tof1).state > 0.12) {  // Ignore invalid readings below 0.12m
-        float target = id(target_parking_distance).state;
+        float target = id(stop_distance_threshold).state;
         float tolerance = id(distance_tolerance_setting).state;
         float distance = id(tof1).state;
         return (distance >= (target - tolerance) && distance <= (target + tolerance));
