@@ -16,13 +16,13 @@ output:
     pin: ${red_led_pin}
     frequency: 500 Hz
     inverted: false
-    max_power: 0.55 # Current limits do not increase
+    max_power: 0.40 # Current limits do not increase
   - platform: ledc
     id: pwm_green_output
     pin: ${green_led_pin}
     frequency: 500 Hz
     inverted: false
-    max_power: 0.55 # Current limits do not increase
+    max_power: 0.40 # Current limits do not increase
 
 number:
   - platform: template
