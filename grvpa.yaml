@@ -21,7 +21,8 @@ packages:
   remote_package_files:
     url: https://github.com/gelidusresearch/grvpa1
     files:
-      - path: packages/grvpa.v1.yaml
+#      - path: packages/grvpa.v1.yaml
+      - path: packages/grvpa.vl53l1x.v1.yaml
     ref: main
     refresh: 1d
 
@@ -29,8 +30,11 @@ dashboard_import:
   package_import_url: github://gelidusresearch/grvpa1/grvpa.yaml@main
   import_full_config: true
 
-# Enable logging
 logger:
+  level: DEBUG
+  logs:
+    vl53l1x: WARN # ToF sensor can be noisy, so we set it to WARN to reduce log spam. Adjust as needed.
+    sensor: WARN  # General sensor logs, set to WARN to reduce log spam. Adjust as needed.
 
 # Enable Home Assistant API
 api:
