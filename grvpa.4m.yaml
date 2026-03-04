@@ -27,7 +27,7 @@ packages:
     refresh: 1d
 
 dashboard_import:
-  package_import_url: github://gelidusresearch/grvpa1/grvpa.yaml@main
+  package_import_url: github://gelidusresearch/grvpa1/grvpa.4m.yaml@main
   import_full_config: true
 
 logger:

@@ -66,7 +66,7 @@ sensor:
     internal: true        # Keep data local
     address: 0x29
     timing_budget: 100ms
-    update_interval: 125ms
+    update_interval: 150ms
     long_range: true
     filters:
       - quantile:
