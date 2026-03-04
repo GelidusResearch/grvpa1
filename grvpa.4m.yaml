@@ -21,8 +21,8 @@ packages:
   remote_package_files:
     url: https://github.com/gelidusresearch/grvpa1
     files:
-      - path: packages/grvpa.v1.yaml
-#      - path: packages/grvpa.vl53l1x.v1.yaml
+#      - path: packages/grvpa.v1.yaml
+      - path: packages/grvpa.vl53l1x.v1.yaml
     ref: main
     refresh: 1d
 
