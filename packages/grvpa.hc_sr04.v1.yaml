@@ -1,18 +1,7 @@
-external_components:
-  - source: github://GelidusResearch/ToF
-    components: [vl53l1x]
-    refresh: 0s
-
 esp32:
   board: esp32dev
   framework:
     type: esp-idf
-
-i2c:
-  id: i2c_bus1
-  sda: ${tof_sda_pin}
-  scl: ${tof_scl_pin}
-  scan: true
 
 output:
   - platform: ledc
@@ -58,26 +47,18 @@ text_sensor:
     ip_address:
       name: "IP Address"
 
-# Note: Sunlight and bright light will cause read noise, filters  assist to clean this up.
-# Some surfaces are difficult to read, glass and dark objects generate more random values slowing the transition actions.
 sensor:
-  - platform: vl53l1x
-    id: tof1
+  - platform: ultrasonic
+    id: hc_sr04_1
+    trigger_pin: ${hc_sr04_trig_pin}
+    echo_pin: ${hc_sr04_echo_pin}
+    update_interval: 200ms
     internal: true        # Keep data local
-    address: 0x29
-    timing_budget: 100ms
-    update_interval: 150ms
-    long_range: true
-    filters:
-      - quantile:
-          window_size: 4
-          send_every: 1
-          quantile: 0.9
     on_value:
       then:
         - lambda: |-
             static float last_good = -1;
-            float dist = id(tof1).state;
+            float dist = id(hc_sr04_1).state;
             float stop_thresh = id(stop_distance_threshold).state;
 
             // Reject invalid readings
@@ -97,12 +78,12 @@ sensor:
             }
   - platform: template
     name: Vehicle Distance
-    id: tof1_ha
+    id: hc_sr04_1_ha
     unit_of_measurement: "M"
     accuracy_decimals: 2
     update_interval: 2s
     lambda: |-
-      return id(tof1).state;   // read internal sensor
+      return id(hc_sr04_1).state;   // read internal sensor
 
 status_led:
   pin: ${status_led_pin}

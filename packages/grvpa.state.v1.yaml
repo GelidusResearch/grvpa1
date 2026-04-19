@@ -1,7 +1,5 @@
 # Vehicle Detection State Machine for GRVPA
 # States: Absent, Arriving, Parked, Leaving
-# Transitions based on distance sensor measurements from tof1 sensor
-# Works with grvpa.v1.yaml configuration
 
 substitutions:
   target_distance: "0.8"  # Target parking distance in meters (matches stop_distance_threshold)
@@ -128,6 +126,4 @@ interval:
             }
           }
 
-# This configuration works with grvpa.v1.yaml
-# Uses the tof1 (VL53L0X) sensor for distance measurements
-# Include this file in your main configuration with packages:
+# Include this file in your main configuration to provide vehicle state management with packages:
