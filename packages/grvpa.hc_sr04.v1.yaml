@@ -53,6 +53,7 @@ sensor:
     trigger_pin: ${hc_sr04_trig_pin}
     echo_pin: ${hc_sr04_echo_pin}
     update_interval: 200ms
+    timeout: 3.5m
     internal: true        # Keep data local
     on_value:
       then:
