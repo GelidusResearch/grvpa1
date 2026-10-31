@@ -14,6 +14,21 @@ i2c:
   scl: ${tof_scl_pin}
   scan: true
 
+# State used by the idle (no-movement) LED shutoff
+globals:
+  - id: ref_distance        # Distance at the last detected movement (<0 = not yet set)
+    type: float
+    initial_value: '-1.0'
+  - id: last_motion_ms      # millis() at the last detected movement
+    type: uint32_t
+    initial_value: '0'
+  - id: change_count        # Consecutive out-of-band readings (noise debounce)
+    type: int
+    initial_value: '0'
+  - id: leds_idle           # true while the LEDs are blanked due to inactivity
+    type: bool
+    initial_value: 'false'
+
 output:
   - platform: ledc
     id: pwm_red_output
@@ -39,6 +54,34 @@ number:
     initial_value: 0.8
     unit_of_measurement: "m"
     optimistic: true
+  - platform: template
+    name: "LED Idle Timeout"
+    id: led_idle_timeout
+    mode: box
+    min_value: 5
+    max_value: 3600
+    step: 5
+    restore_value: true
+    initial_value: 60
+    unit_of_measurement: "s"
+    optimistic: true
+  - platform: template
+    name: "Minimum Distance Change"
+    id: min_distance_change
+    min_value: 0.01
+    max_value: 1.0
+    step: 0.01
+    restore_value: true
+    initial_value: 0.10
+    unit_of_measurement: "m"
+    optimistic: true
+
+binary_sensor:
+  - platform: template
+    name: "LEDs Idle"
+    entity_category: "diagnostic"
+    lambda: |-
+      return id(leds_idle);
 
 light:
   - platform: monochromatic
@@ -79,6 +122,39 @@ sensor:
             static float last_good = -1;
             float dist = id(tof1).state;
             float stop_thresh = id(stop_distance_threshold).state;
+
+            // ---- Idle detection: blank the LEDs when nothing has moved for a while ----
+            float min_change = id(min_distance_change).state;                      // m
+            uint32_t timeout_ms = (uint32_t) (id(led_idle_timeout).state * 1000.0f);
+            uint32_t now = millis();
+
+            // No reading (NaN) is treated as "max range" (the 4 m long-range limit)
+            // so a vehicle arriving or leaving still counts as movement.
+            float eff = std::isnan(dist) ? 4.0f : dist;
+
+            if (id(ref_distance) < 0) {
+              // First reading after boot: start the idle timer
+              id(ref_distance) = eff;
+              id(last_motion_ms) = now;
+              id(change_count) = 0;
+            } else if (fabsf(eff - id(ref_distance)) > min_change) {
+              // Must be out of band for 3 readings in a row to count as movement,
+              // so a single noisy reading can't wake the LEDs
+              if (++id(change_count) >= 3) {
+                id(ref_distance) = eff;
+                id(last_motion_ms) = now;
+                id(change_count) = 0;
+              }
+            } else {
+              id(change_count) = 0;
+            }
+
+            id(leds_idle) = (now - id(last_motion_ms)) >= timeout_ms;
+            if (id(leds_idle)) {
+              id(pwm_red_output).set_level(0.0);
+              id(pwm_green_output).set_level(0.0);
+              return;
+            }
 
             // Reject invalid readings
             if (dist <= .12|| (dist > stop_thresh + 0.15) ) {
